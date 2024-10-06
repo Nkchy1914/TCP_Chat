@@ -1,0 +1,76 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+
+class Server
+{
+    private static readonly List<TcpClient> clients = new List<TcpClient>(); // Създаваме списък с клиенти
+    private const int Port = 8888; // Дефинираме порт
+
+    static void Main()
+    {
+        TcpListener server = new TcpListener(IPAddress.Any, Port); // Създаваме TCP server
+        server.Start(); // Стартираме сървъра
+        Console.WriteLine($"Server started on port {Port}");
+
+        while (true)
+        {
+            TcpClient client = server.AcceptTcpClient();  AcceptTcpClient е блокиращ метод, който връща TcpClient, който може да се използва за изпращане и получаване на данни
+            clients.Add(client);   // Добавя се клиента  
+            Thread clientThread = new Thread(HandleClient); // Създаваме нишка 
+            clientThread.Start(client); // Стартираме нишката
+        }
+    }
+
+    static void HandleClient(object obj)
+    {
+//////////////
+        TcpClient tcpClient = (TcpClient)obj; //Превръща обект в TCP клиент.
+
+        NetworkStream stream = tcpClient.GetStream();
+
+        byte[] buffer = new byte[1024]; масив от byte 
+        int bytesRead; // Създаваме четец на byte 
+
+        while (true)
+        {
+            try
+            {
+                bytesRead = stream.Read(buffer, 0, buffer.Length);  //Чете данните и ги записва
+                if (bytesRead == 0) // Ако няма прочетени байтове, цикълът се прекъсва.
+                {
+                    break;
+                }
+
+                string message = Encoding.ASCII.GetString(buffer, 0, bytesRead); // Преобразува  байтове в текст 
+                Console.WriteLine($"Received: {message}");
+
+                BroadcastMessage(tcpClient, message); Извиква метода BroadcastMessage, за да препрати съобщението
+            }
+            catch (Exception)
+            {
+                break;
+            }
+        }
+
+        clients.Remove(tcpClient); // : Премахва клиента от списъка с клиенти
+        tcpClient.Close(); // Затваря TCP връзката 
+    }
+
+    static void BroadcastMessage(TcpClient sender, string message) // Създаваме метод  BroadcastMessage
+    {
+        byte[] broadcastBuffer = Encoding.ASCII.GetBytes(message); //Преобразува текста на съобщението в байтове
+
+        foreach (TcpClient client in clients) // Обхожда всички клиенти в списъка.
+        {
+            if (client != sender) // Aко клиента е различен от изпращача
+            {
+                NetworkStream stream = client.GetStream(); // Взема информация 
+                stream.Write(broadcastBuffer, 0, broadcastBuffer.Length);  // Изпраща байтовете към клиента
+            }
+        }
+    }
+}

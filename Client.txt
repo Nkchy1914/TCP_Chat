@@ -1,0 +1,56 @@
+﻿using System;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+
+class Client // Създаваме клас Client
+{
+    // Задаваме му параметри порт и ip
+    private const int Port = 8888;
+    private const string ServerIp = "127.0.0.1";
+
+    static void Main() //Създаваме главен метод
+    {
+        TcpClient client = new TcpClient(ServerIp, Port);   Създаваме TCP връзка с клиент със зададените по - горе ip и порт
+        Console.WriteLine("Connected to server. Start chatting!");
+
+        NetworkStream stream = client.GetStream();   // Създаваме NetworkStream, който предоставя методи за изпращане и получаване на данни през Stream сокети в режим на блокиране.
+
+        Thread receiveThread = new Thread(ReceiveMessages);   //  създаваме нишка за получаване на съобщения
+        receiveThread.Start(stream);
+
+        while (true)
+        {
+            string message = Console.ReadLine();  // Прочитаме съобщението от конзолата
+            byte[] buffer = Encoding.ASCII.GetBytes(message); //  Преобразува съобщението в ASCII
+            stream.Write(buffer, 0, buffer.Length); // Изпраща по потока
+
+        }
+    }
+
+    static void ReceiveMessages(object obj)  // Метод за получаване 
+    {
+        NetworkStream stream = (NetworkStream)obj; 
+        byte[] buffer = new byte[1024]; // Създаваме масив от byte 
+        int bytesRead; // Четец на byte 
+
+        while (true)
+        {
+            try
+            {
+                bytesRead = stream.Read(buffer, 0, buffer.Length);  Чете данни от потока и ги записва
+                if (bytesRead == 0)
+                {
+                    break;
+                }
+
+                string message = Encoding.ASCII.GetString(buffer, 0, bytesRead);  //Преобразува байтовете в текст
+                Console.WriteLine(message);
+            }
+            catch (Exception)
+            {
+                break;
+            }
+        }
+    }
+}
